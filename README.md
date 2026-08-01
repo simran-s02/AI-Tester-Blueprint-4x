@@ -6,4 +6,4 @@ To build practical skills in AI-assisted software testing, prompt engineering an
 
 ## Contents - 
 1. **Prompt Engineering**
-2. **Commands
+2. **Command Code Commands Research**
