@@ -1,3 +1,6 @@
+AI Assistant used: Claude.ai,
+LLM Model: Sonnet 5, effort: Medium
+
 | Test ID | Description | Pre-conditions | Steps | Expected Result | Priority |
 |---|---|---|---|---|---|
 | TC_VWO_LOGIN_AUTH_001 | Verify a user can authenticate using the documented email-and-password login mechanism. | User is on the VWO login page; user has a registered account. | 1. Enter a valid email address.<br>2. Enter the correct password.<br>3. Submit the login form. | User is securely authenticated and transitioned to the VWO platform, per the documented authentication flow. | High |
