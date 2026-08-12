@@ -1,2 +1,2 @@
 # Prompt-Engineering-Assignment 
-This repository contains the artefacts for the Prompt Engineering assignments.
+This repository contains the assets and artefacts for the Prompt Engineering assignments.
