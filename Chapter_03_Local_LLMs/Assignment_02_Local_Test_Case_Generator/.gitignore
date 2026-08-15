@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets — never commit
+.env
+config.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
