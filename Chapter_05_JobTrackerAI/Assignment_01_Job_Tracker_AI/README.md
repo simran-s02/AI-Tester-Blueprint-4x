@@ -61,6 +61,8 @@ Users can delete a job application from the action menu.
 
 A confirmation dialog appears before deletion to prevent accidental removal.
 
+Users can cancel the deletion or confirm the deletion.
+
 ### 🔎 Search
 
 Users can search job applications by:
@@ -118,6 +120,8 @@ This allows job data to remain available after refreshing the application.
 
 ## 🏗️ Application Architecture
 
+The application follows a component-based React architecture.
+
 ```text
 User Interface
       │
@@ -143,3 +147,169 @@ User Interface
              │
              ▼
           IndexedDB
+```
+
+---
+
+## 📁 Project Structure
+
+```text
+Assignment_01_Job_Tracker_AI/
+│
+├── job-tracker/
+│   └── React application
+│
+├── node_modules/
+│   └── Installed project dependencies
+│
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+> `node_modules/` is generated automatically by npm and should be excluded from version control using `.gitignore`.
+
+---
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+
+Make sure the following are installed:
+
+- Node.js
+- npm
+- Git
+
+You can verify the installations using:
+
+```bash
+node --version
+npm --version
+git --version
+```
+
+---
+
+## 📦 Install Dependencies
+
+From the `Assignment_01_Job_Tracker_AI` directory, run:
+
+```bash
+npm install
+```
+
+This installs the dependencies required by the project.
+
+---
+
+## ▶️ Run the Application
+
+Navigate into the React application:
+
+```bash
+cd job-tracker
+```
+
+Start the Vite development server:
+
+```bash
+npm run dev
+```
+
+After starting the development server, Vite will display the local URL.
+
+Open the application at:
+
+```text
+http://localhost:5173/
+```
+
+---
+
+## 🛑 Stop the Application
+
+To stop the development server, press:
+
+```text
+Ctrl + C
+```
+
+in the terminal where Vite is running.
+
+---
+
+## 🧪 Functional Verification
+
+### Job Management
+
+- Add a job
+- Edit a job
+- View job details
+- Open the job action menu
+- Delete a job
+- Cancel deletion
+- Confirm deletion
+
+### Search and Filters
+
+- Search by company
+- Search by job title
+- Filter by status
+- Filter by date
+- Clear filters
+
+### Kanban Board
+
+- Drag a job between columns
+- Verify that its status changes
+- Refresh the application
+- Verify that job data remains available
+
+### Dashboard
+
+- Verify that dashboard statistics reflect the stored jobs
+
+### UI
+
+- Toggle dark mode
+- Open and close job action menus
+- Use the Kanban board
+
+---
+
+## 💾 Data Persistence
+
+The application uses IndexedDB for local storage of job application data.
+
+This allows job data to remain available after refreshing the application.
+
+No external backend service is required for the implemented job tracking functionality.
+
+---
+
+## 📚 Chapter Information
+
+**Chapter:** 05 — Job Tracker AI
+
+**Assignment:** 01 — Job Tracker AI
+
+**Application:** Job Tracker AI
+
+**Development Server:** Vite
+
+**Local URL:** `http://localhost:5173/`
+
+**Storage:** IndexedDB
+
+---
+
+## 👤 Author
+
+**Simran Satpathy**
+
+---
+
+## 📄 License
+
+This project was created for educational and learning purposes.
