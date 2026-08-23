@@ -1,0 +1,22 @@
+export const createJob = ({
+  company,
+  title,
+  linkedinUrl = '',
+  resume = '',
+  dateApplied = new Date().toISOString(),
+  salary = '',
+  notes = '',
+  status = 'wishlist',
+}) => ({
+  id: crypto.randomUUID(),
+  company,
+  title,
+  linkedinUrl,
+  resume,
+  dateApplied,
+  salary,
+  notes,
+  status,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+})
