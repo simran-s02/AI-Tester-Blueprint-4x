@@ -11,28 +11,7 @@ import {
   Eye,
   X,
 } from 'lucide-react'
-
-function getDaysSinceApplied(dateApplied) {
-  if (!dateApplied) {
-    return null
-  }
-
-  const appliedDate = new Date(dateApplied)
-  const today = new Date()
-
-  appliedDate.setHours(0, 0, 0, 0)
-  today.setHours(0, 0, 0, 0)
-
-  const difference =
-    today.getTime() - appliedDate.getTime()
-
-  return Math.max(
-    0,
-    Math.floor(
-      difference / (1000 * 60 * 60 * 24),
-    ),
-  )
-}
+import { getDaysSinceApplied } from '../../utils/dateUtils'
 
 function JobCard({ job, onEdit, onDelete, onView }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)

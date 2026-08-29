@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { X, BriefcaseBusiness } from 'lucide-react'
-import { JOB_STATUSES } from '../data/statuses'
+import { JOB_STATUSES } from '../../data/statuses'
 
 const initialForm = {
   company: '',
@@ -14,33 +14,25 @@ const initialForm = {
 }
 
 function JobModal({ isOpen, onClose, onSave, job }) {
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState(() => {
+  if (!job) {
+    return initialForm
+  }
+
+  return {
+    company: job.company || '',
+    title: job.title || '',
+    linkedinUrl: job.linkedinUrl || '',
+    resume: job.resume || '',
+    dateApplied: job.dateApplied
+      ? new Date(job.dateApplied).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+    salary: job.salary || '',
+    notes: job.notes || '',
+    status: job.status || 'wishlist',
+  }
+})
   const [errors, setErrors] = useState({})
-
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    if (job) {
-      setForm({
-        company: job.company || '',
-        title: job.title || '',
-        linkedinUrl: job.linkedinUrl || '',
-        resume: job.resume || '',
-        dateApplied: job.dateApplied
-          ? new Date(job.dateApplied).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0],
-        salary: job.salary || '',
-        notes: job.notes || '',
-        status: job.status || 'wishlist',
-      })
-    } else {
-      setForm(initialForm)
-    }
-
-    setErrors({})
-  }, [isOpen, job])
 
   if (!isOpen) {
     return null

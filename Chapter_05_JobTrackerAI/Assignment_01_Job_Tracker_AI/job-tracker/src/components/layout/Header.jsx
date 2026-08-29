@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Moon, Plus, Search, Sun } from 'lucide-react'
+import { BriefcaseBusiness, Moon, Plus, Sun } from 'lucide-react'
 
 function Header({ darkMode, onToggleDarkMode, onAddJob }) {
   return (

@@ -1,17 +1,24 @@
 import { useState } from 'react'
-import Header from './components/Header'
-import DashboardStats from './components/DashboardStats'
-import SearchBar from './components/SearchBar'
-import KanbanBoard from './components/KanbanBoard'
-import { useJobs } from './hooks/useJobs'
-import JobModal from './components/JobModal'
 import { ExternalLink, X } from 'lucide-react'
+
+import Header from './components/layout/Header'
+import DashboardStats from './components/dashboard/DashboardStats'
+import FollowUpAlerts from './components/dashboard/FollowUpAlerts'
+import SearchBar from './components/search/SearchBar'
+import KanbanBoard from './components/kanban/KanbanBoard'
+import JobModal from './components/jobs/JobModal'
+import { useJobs } from './hooks/useJobs'
 
 function App() {
   const [isJobModalOpen, setIsJobModalOpen] = useState(false)
   const [editingJob, setEditingJob] = useState(null)
-  const [jobToDelete, setJobToDelete] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
+
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+  const [darkMode, setDarkMode] = useState(false)
 
   const {
     jobs,
@@ -20,58 +27,85 @@ function App() {
     removeJob,
   } = useJobs()
 
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [dateFilter, setDateFilter] = useState('all')
-  const [darkMode, setDarkMode] = useState(false)
+  const hasFilters =
+    search ||
+    statusFilter !== 'all' ||
+    dateFilter !== 'all' ||
+    sortBy !== 'newest'
 
-  const filteredJobs = jobs.filter((job) => {
-    const query = search.toLowerCase().trim()
+  const filteredJobs = [...jobs]
+    .filter((job) => {
+      const query = search.toLowerCase().trim()
 
-    const matchesSearch =
-      !query ||
-      job.company.toLowerCase().includes(query) ||
-      job.title.toLowerCase().includes(query)
+      const matchesSearch =
+        !query ||
+        job.company.toLowerCase().includes(query) ||
+        job.title.toLowerCase().includes(query)
 
-    const matchesStatus =
-      statusFilter === 'all' ||
-      job.status === statusFilter
+      const matchesStatus =
+        statusFilter === 'all' ||
+        job.status === statusFilter
 
-    let matchesDate = true
+      let matchesDate = true
 
-    if (dateFilter !== 'all' && job.dateApplied) {
-      const appliedDate = new Date(job.dateApplied)
-      const today = new Date()
+      if (dateFilter !== 'all' && job.dateApplied) {
+        const appliedDate = new Date(job.dateApplied)
+        const today = new Date()
 
-      appliedDate.setHours(0, 0, 0, 0)
-      today.setHours(0, 0, 0, 0)
+        appliedDate.setHours(0, 0, 0, 0)
+        today.setHours(0, 0, 0, 0)
 
-      const difference =
-        today.getTime() - appliedDate.getTime()
+        const difference =
+          today.getTime() - appliedDate.getTime()
 
-      const daysAgo = Math.floor(
-        difference / (1000 * 60 * 60 * 24),
+        const daysAgo = Math.floor(
+          difference / (1000 * 60 * 60 * 24),
+        )
+
+        if (dateFilter === 'today') {
+          matchesDate = daysAgo === 0
+        }
+
+        if (dateFilter === '7days') {
+          matchesDate =
+            daysAgo >= 0 && daysAgo <= 7
+        }
+
+        if (dateFilter === '30days') {
+          matchesDate =
+            daysAgo >= 0 && daysAgo <= 30
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesDate
       )
-
-      if (dateFilter === 'today') {
-        matchesDate = daysAgo === 0
+    })
+    .sort((a, b) => {
+      if (sortBy === 'companyAsc') {
+        return a.company.localeCompare(b.company)
       }
 
-      if (dateFilter === '7days') {
-        matchesDate = daysAgo >= 0 && daysAgo <= 7
+      if (sortBy === 'companyDesc') {
+        return b.company.localeCompare(a.company)
       }
 
-      if (dateFilter === '30days') {
-        matchesDate = daysAgo >= 0 && daysAgo <= 30
-      }
-    }
+      const dateA = new Date(
+        a.dateApplied || a.createdAt || 0,
+      ).getTime()
 
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesDate
-    )
-  })
+      const dateB = new Date(
+        b.dateApplied || b.createdAt || 0,
+      ).getTime()
+
+      if (sortBy === 'oldest') {
+        return dateA - dateB
+      }
+
+      return dateB - dateA
+    })
 
   const handleAddJob = () => {
     setEditingJob(null)
@@ -102,20 +136,11 @@ function App() {
     await editJob(job)
   }
 
-  const handleDeleteJob = (job) => {
-    setJobToDelete(job)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!jobToDelete) {
-      return
-    }
-
+  const handleDeleteJob = async (job) => {
     try {
-      await removeJob(jobToDelete.id)
-      setJobToDelete(null)
+      await removeJob(job.id)
 
-      if (selectedJob?.id === jobToDelete.id) {
+      if (selectedJob?.id === job.id) {
         setSelectedJob(null)
       }
     } catch (error) {
@@ -126,14 +151,20 @@ function App() {
     }
   }
 
-  const handleCancelDelete = () => {
-    setJobToDelete(null)
+  const handleFollowUp = async (job) => {
+    const updatedJob = {
+      ...job,
+      status: 'follow-up',
+    }
+
+    await editJob(updatedJob)
   }
 
   const handleClearFilters = () => {
     setSearch('')
     setStatusFilter('all')
     setDateFilter('all')
+    setSortBy('newest')
   }
 
   const toggleDarkMode = () => {
@@ -171,6 +202,11 @@ function App() {
 
             <DashboardStats jobs={jobs} />
 
+            <FollowUpAlerts
+              jobs={jobs}
+              onFollowUp={handleFollowUp}
+            />
+
             <SearchBar
               search={search}
               onSearch={setSearch}
@@ -178,6 +214,8 @@ function App() {
               onStatusFilter={setStatusFilter}
               dateFilter={dateFilter}
               onDateFilter={setDateFilter}
+              sortBy={sortBy}
+              onSortBy={setSortBy}
               onClearFilters={handleClearFilters}
               resultCount={filteredJobs.length}
             />
@@ -188,11 +226,15 @@ function App() {
               onDeleteJob={handleDeleteJob}
               onViewJob={handleViewJob}
               onMoveJob={handleMoveJob}
+              hasFilters={hasFilters}
+              onClearFilters={handleClearFilters}
+              onAddJob={handleAddJob}
             />
           </div>
         </main>
 
         <JobModal
+          key={editingJob?.id ?? 'new'}
           isOpen={isJobModalOpen}
           onClose={() => {
             setIsJobModalOpen(false)
@@ -266,7 +308,9 @@ function App() {
                     </p>
 
                     <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-                      {selectedJob.dateApplied}
+                      {new Date(
+                        selectedJob.dateApplied,
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 )}
@@ -317,50 +361,6 @@ function App() {
                   className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {jobToDelete && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400">
-                  ⚠️
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Delete job?
-                  </h2>
-
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    Are you sure you want to delete{' '}
-                    <span className="font-semibold text-slate-700 dark:text-slate-200">
-                      {jobToDelete.company}
-                    </span>
-                    ? This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelDelete}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleConfirmDelete}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
-                >
-                  Delete job
                 </button>
               </div>
             </div>

@@ -7,7 +7,7 @@ import {
   Search,
 } from 'lucide-react'
 
-import { JOB_STATUSES } from '../data/statuses'
+import { JOB_STATUSES } from '../../data/statuses'
 import KanbanColumn from './KanbanColumn'
 
 function KanbanBoard({

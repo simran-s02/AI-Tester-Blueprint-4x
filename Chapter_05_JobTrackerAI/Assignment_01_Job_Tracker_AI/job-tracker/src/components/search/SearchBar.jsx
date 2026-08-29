@@ -1,5 +1,5 @@
 import { Search, SlidersHorizontal, X } from 'lucide-react'
-import { JOB_STATUSES } from '../data/statuses'
+import { JOB_STATUSES } from '../../data/statuses'
 
 function SearchBar({
   search,

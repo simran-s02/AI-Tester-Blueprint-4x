@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   addJob,
   deleteJob,
@@ -11,7 +11,38 @@ export const useJobs = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const loadJobs = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false
+
+    const loadInitialJobs = async () => {
+      try {
+        const storedJobs = await getAllJobs()
+
+        if (!cancelled) {
+          setJobs(storedJobs || [])
+          setError(null)
+        }
+      } catch (err) {
+        console.error('Failed to load jobs:', err)
+
+        if (!cancelled) {
+          setError('Unable to load your jobs.')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadInitialJobs()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const loadJobs = async () => {
     try {
       setLoading(true)
       setError(null)
@@ -22,14 +53,11 @@ export const useJobs = () => {
     } catch (err) {
       console.error('Failed to load jobs:', err)
       setError('Unable to load your jobs.')
+      throw err
     } finally {
       setLoading(false)
     }
-  }, [])
-
-  useEffect(() => {
-    loadJobs()
-  }, [loadJobs])
+  }
 
   const createJob = async (job) => {
     try {
@@ -38,7 +66,8 @@ export const useJobs = () => {
       const newJob = {
         ...job,
         id: job.id || crypto.randomUUID(),
-        createdAt: job.createdAt || new Date().toISOString(),
+        createdAt:
+          job.createdAt || new Date().toISOString(),
       }
 
       await addJob(newJob)

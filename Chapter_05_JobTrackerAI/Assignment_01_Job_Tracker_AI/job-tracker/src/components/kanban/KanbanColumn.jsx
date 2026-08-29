@@ -1,5 +1,5 @@
 import { useDroppable } from '@dnd-kit/core'
-import JobCard from './JobCard'
+import JobCard from '../jobs/JobCard'
 
 function KanbanColumn({
   status,
