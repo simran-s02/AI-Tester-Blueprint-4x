@@ -35,7 +35,7 @@
 | # | Goal | Status | Notes |
 |---|------|--------|-------|
 | G1 | Simple UI (Streamlit) — Generate page + Settings page | ✅ Done | `app.py` |
-| G2 | Settings: Jira URL/email/token + Groq key/model, saved locally | ✅ Done | `.app_settings.json` via `tools/config_store.py` |
+| G2 | Settings: Jira URL/email/token + Groq key/model, saved locally | ✅ Done | `.env` via `tools/config_store.py` |
 | G3 | Test Connection buttons for Jira and Groq | ✅ Done | `tools/jira_client.py` / `tools/groq_client.py` |
 | G4 | Parse issue: summary, description, acceptance criteria, type, priority, labels | ✅ Done | ADF + wiki + plain-text handling |
 | G5 | Auto-generate test plan with scenarios/cases/coverage | ✅ Done | deterministic skeleton + Groq prose |
@@ -71,7 +71,7 @@
 
 ## ✅ Checklist — Phase 2: L — Link (Connectivity)
 
-- [x] Design Link layer: `.env` / `.app_settings.json` + `tools/jira_client.py` + `tools/groq_client.py`
+- [x] Design Link layer: `.env` (single store) + `tools/jira_client.py` + `tools/groq_client.py`
 - [x] Jira REST handshake: `GET /rest/api/3/myself` (v3) / `GET /rest/api/2/myself` (v2)
 - [x] Groq handshake: `GET https://api.groq.com/openai/v1/models`
 - [x] If Link is broken → UI shows error, does not proceed to full logic
@@ -83,7 +83,7 @@
 - [x] Write Technical SOPs in `architecture/` (goals, inputs, tool logic, edge cases)
 - [x] Navigation layer (thin orchestrator): route issue data → parser → generator (`tools/orchestrator.py`)
 - [x] Build `tools/` deterministic Python scripts (atomic, testable)
-- [x] Store tokens in `.env` / `.app_settings.json` (never in code) ✅
+- [x] Store tokens in `.env` (never in code) ✅
 - [x] Use `.tmp/` for all intermediate file operations
 - [x] Update SOP **before** updating code when logic changes (Golden Rule)
 
@@ -124,7 +124,7 @@
 
 ## 🚧 Constraints / Do-Not Rules
 
-- **Do not** hardcode secrets — `.env` / `.app_settings.json` only.
+- **Do not** hardcode secrets — `.env` only (git-ignored, single source of truth).
 - **Do not** let LLM make business decisions — deterministic skeleton first.
 - **Do not** proceed past a broken Link (connection test fails → stop).
 - **Do not** guess field mappings — user supplies Jira field info in Settings if needed.

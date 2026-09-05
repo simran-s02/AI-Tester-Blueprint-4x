@@ -243,6 +243,38 @@
 
 ---
 
+## Session 6 — Settings store refactor (single `.env` source of truth)
+
+### 22:00 — Diagnosed the settings problems
+- **Action:** Investigated "what's wrong" — found two real issues: (1) `.app_settings.json` silently overrode a freshly edited `.env` (this caused the earlier 401 — stale token), and (2) the Settings token fields always rendered blank when a secret was saved, with no way to see or deliberately clear it.
+- **Result:** Confirmed via AppTest + live KAN-1 generate that the core app flow was NOT broken; the bugs were in settings persistence/UX.
+- **Error:** None.
+- **Next:** Fix config_store.
+
+### 22:10 — config_store rewritten
+- **Action:** `tools/config_store.py` now treats **`.env` as the single source of truth**:
+  - `load_settings()` merges defaults < `.env` (no JSON override);
+  - `save_settings()` writes `.env` (empty value = remove the line, i.e. clear works);
+  - one-time migration of a legacy `.app_settings.json` into `.env`, then the JSON is deleted;
+  - removed the `os.getenv` fallback that could serve a stale process-env token after a clear.
+- **Result:** Round-trip test passed: load preserves creds, clear removes the token line, legacy migration lands values in `.env` and removes the JSON. Real `.env` backed up + restored throughout.
+- **Error (found + fixed):** "clear did not work" in the first test — caused by the stale `os.getenv` fallback, not the writer.
+- **Next:** Settings page UX.
+
+### 22:15 — Settings page UX fixed
+- **Action:** `app.py` Settings now shows "✅ A Jira API token is saved" / "✅ A GROQ API key is saved", lets the user replace a secret by typing a new one, offers **Clear the saved token/key** checkboxes, and refreshes the status line after Save. Dropped unused imports (`mask_settings`, `OrchestratorError`).
+- **Result:** AppTest passed: saved-state captions show, clear checkboxes present, Generate (demo) still works.
+- **Error:** None.
+- **Next:** Docs sync + restart.
+
+### 22:25 — Docs + restart
+- **Action:** Updated README, SOP-04, LLM.md (settings schema + rule 4 + tooling + data flow), task_plan references to the `.env` single store; added changelog entries. Restarted Streamlit on 8502.
+- **Result:** App healthy on http://localhost:8502 with the new code; `.env` intact (both real creds present), no `.app_settings.json`.
+- **Error:** None.
+- **Next:** User verifies in the UI (Settings now shows saved state; Generate works for KAN-1).
+
+---
+
 ## Template for future entries (copy & fill)
 
 ```

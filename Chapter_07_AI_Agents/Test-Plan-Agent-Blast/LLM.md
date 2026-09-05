@@ -24,7 +24,11 @@ My core assumption while designing this:
 
 > `{ }` = object, `[ ]` = array, `?` = optional. Field names are snake_case for the internal contract.
 
-### 2.1 Settings Schema (`.app_settings.json`)
+### 2.1 Settings Schema (`.env` — single source of truth)
+
+> Since Session 6, `.env` is the **only** settings store. A legacy `.app_settings.json`
+> is migrated into `.env` once and then removed, so it can never silently override a
+> freshly edited `.env`.
 
 ```json
 {
@@ -141,7 +145,7 @@ My core assumption while designing this:
 1. **Deterministic skeleton first.** The generator produces scenario IDs (S-01, TC-01…) by fixed rules from the parsed schema — the LLM only fills in human-readable prose inside that skeleton.
 2. **Every test case must trace to a source** (acceptance criterion, requirement segment, or explicit user rule). No orphan cases. If no source exists → flag as a gap, don't invent one.
 3. **Don't guess unknowns — surface them.** Unknown field mapping → user provides via Settings; never a hardcoded guess.
-4. **No secrets in code.** `.env` / `.app_settings.json` only; scripts read settings; both are git-ignored.
+4. **No secrets in code.** `.env` only (single store, git-ignored); scripts read settings from it.
 5. **Idempotent by design.** Re-running the same Jira ID yields the same structure; `generated_at` is the only volatile field.
 6. **Normalize before analyze.** ADF/wiki markup → markdown → plain semantics. Never regex-parse raw ADF.
 7. **Scope guard:** operate only inside `Chapter_07_AI_Agents/Test-Plan-Agent-Blast/`. `.tmp/` for intermediates.
@@ -161,7 +165,7 @@ My core assumption while designing this:
 
 ```
 tools/
-  config_store.py    # settings: load/save .app_settings.json + .env merge + validation
+  config_store.py    # settings: load/save .env (single store) + legacy .app_settings.json migration
   jira_client.py     # test_connection(); fetch_issue(); normalize (ADF/wiki/plain -> md); extract ACs
   groq_client.py     # test_connection() -> list models; chat() -> JSON content with fallback
   plan_engine.py     # deterministic skeleton + coverage + validate + markdown render
@@ -173,7 +177,7 @@ tools/
 
 ```
 User prompt ("Fetch PROJ-123 ...") 
-  → Settings (.app_settings.json)
+  → Settings (.env)
   → tools/orchestrator.py
       → tools/jira_client.fetch_issue()     → issue.normalized
       → tools/plan_engine.build_skeleton()  → skeleton (deterministic)
@@ -212,3 +216,4 @@ User prompt ("Fetch PROJ-123 ...")
 | 2026-09-05 | Session 3: `demo_mode` fallback (Generate works without creds), `issue_lookup_by` setting (key vs title JQL), `fetch_issue_by_title()`, SOP-04 updated first. | System Pilot |
 | 2026-09-05 | Session 4: **Groq verified live** (`openai/gpt-oss-120b`); Jira token from Chapter_03 expired (401). Added strict-JSON-mode retry fallback + explicit output schema in the LLM prompt. | System Pilot |
 | 2026-09-05 | Session 5: **STLC integration** (schema 2.0.0) — gap analysis, P0/P1/P2 priorities, scenario types + maps_to, DRAFT status + HUMAN REVIEW GATE. From Chapter_02 STLC_SKILLS. | System Pilot |
+| 2026-09-05 | Session 6: settings refactor — `.env` is the single store (legacy `.app_settings.json` migrated once then removed); Settings UI shows saved-token state with clear checkboxes; fixed stale-env override bug (dropped os.getenv fallback). | System Pilot |

@@ -16,10 +16,10 @@ from pathlib import Path
 import streamlit as st
 
 from tools import plan_engine
-from tools.config_store import is_configured, load_settings, mask_settings, save_settings
+from tools.config_store import is_configured, load_settings, save_settings
 from tools.groq_client import GroqClient, GroqError
 from tools.jira_client import JiraClient, JiraError
-from tools.orchestrator import OrchestratorError, run_to_markdown
+from tools.orchestrator import run_to_markdown
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
@@ -74,11 +74,13 @@ def _save_settings_ui(values: dict) -> None:
 # ---------------------------------------------------------------- pages
 def settings_page() -> None:
     st.header("⚙️ Settings")
-    st.caption("Configure Jira and Groq. Secrets are stored locally in `.app_settings.json` (git-ignored).")
+    st.caption("Configure Jira and Groq. Credentials are stored in the local `.env` file (git-ignored).")
 
     current = _load_settings_cached()
     jira = current.get("jira", {})
     groq = current.get("groq", {})
+    has_jira_token = bool((jira.get("api_token") or "").strip())
+    has_groq_key = bool((groq.get("api_key") or "").strip())
 
     with st.form("settings_form"):
         st.subheader("Jira")
@@ -89,13 +91,16 @@ def settings_page() -> None:
             help="Include https:// and do not add /rest/api — the app detects v3/v2.",
         )
         jira_email = st.text_input("Email", value=jira.get("email", ""))
+        if has_jira_token:
+            st.caption("✅ A Jira API token is saved. Enter a new one below only to replace it.")
         jira_token = st.text_input(
-            "API token",
+            "API token (leave blank to keep the saved one)",
             type="password",
-            value="" if jira.get("api_token") else "",
-            placeholder="Saved value is kept if left blank",
+            value="",
+            placeholder="Enter a new token to replace the saved one",
             help="Jira API token (https://id.atlassian.com/manage-profile/security/api-tokens).",
         )
+        clear_jira_token = st.checkbox("Clear the saved Jira token", value=False)
         lookup_mode = st.selectbox(
             "Issue lookup by",
             options=["key", "title"],
@@ -105,13 +110,16 @@ def settings_page() -> None:
 
         st.divider()
         st.subheader("GROQ")
+        if has_groq_key:
+            st.caption("✅ A GROQ API key is saved. Enter a new one below only to replace it.")
         groq_key = st.text_input(
-            "GROQ API key",
+            "GROQ API key (leave blank to keep the saved one)",
             type="password",
-            value="" if groq.get("api_key") else "",
-            placeholder="gsk_...",
+            value="",
+            placeholder="Enter a new key to replace the saved one",
             help="Groq console: https://console.groq.com/keys",
         )
+        clear_groq_key = st.checkbox("Clear the saved GROQ API key", value=False)
         model_options = list(dict.fromkeys([groq.get("model") or DEFAULT_GROQ_MODELS[0], *DEFAULT_GROQ_MODELS]))
         groq_model = st.selectbox(
             "Model",
@@ -127,16 +135,27 @@ def settings_page() -> None:
             "jira": {"base_url": jira_url.strip(), "email": jira_email.strip(), "issue_lookup_by": lookup_mode},
             "groq": {"model": groq_model},
         }
-        if jira_token:
+        # Token semantics: blank + not-clear -> keep; typed -> replace; clear -> remove.
+        if clear_jira_token:
+            new_values["jira"]["api_token"] = ""
+        elif jira_token.strip():
             new_values["jira"]["api_token"] = jira_token.strip()
         else:
             new_values["jira"]["api_token"] = jira.get("api_token", "")
-        if groq_key:
+
+        if clear_groq_key:
+            new_values["groq"]["api_key"] = ""
+        elif groq_key.strip():
             new_values["groq"]["api_key"] = groq_key.strip()
         else:
             new_values["groq"]["api_key"] = groq.get("api_key", "")
+
         _save_settings_ui(new_values)
-        st.success("Settings saved.")
+        current = load_settings()  # refresh so the status line below is accurate
+        jira, groq = current.get("jira", {}), current.get("groq", {})
+        has_jira_token = bool((jira.get("api_token") or "").strip())
+        has_groq_key = bool((groq.get("api_key") or "").strip())
+        st.success("Settings saved to `.env`.")
 
     st.divider()
     st.subheader("Test connections")
@@ -171,13 +190,16 @@ def settings_page() -> None:
                     st.error(f"GROQ test failed: {exc}")
 
     st.divider()
-    configured = is_configured(current)
+    # Recompute from the (possibly just-refreshed) jira/groq values so the status
+    # reflects what is actually saved after a Submit.
+    jira_ok = bool((jira.get("base_url") or "").strip() and has_jira_token)
+    groq_ok = has_groq_key
     st.caption(
         "Status: "
-        + ("✅ Jira configured" if configured["jira"] else "❌ Jira not configured")
+        + ("✅ Jira configured" if jira_ok else "❌ Jira not configured")
         + " · "
-        + ("✅ GROQ configured" if configured["groq"] else "❌ GROQ not configured")
-        + " (values shown are masked)"
+        + ("✅ GROQ configured" if groq_ok else "❌ GROQ not configured")
+        + " · stored in `.env` (git-ignored)"
     )
 
 

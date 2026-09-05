@@ -10,7 +10,9 @@ Provide a **simple UI** where the user gives a prompt like *"Fetch this Jira and
 ### 1. Settings page
 - Jira section: `base_url`, `email`, `api_token` (password), **Test Jira Connection**.
 - Groq section: `api_key` (password), `model` (text; prefilled `openai/gpt-oss-120b`), **Test Groq Connection** (lists live models on success).
-- **Save Settings** → writes `.app_settings.json` (secrets git-ignored). Saved values are masked on reload.
+- **Save Settings** → writes the local `.env` (single source of truth, git-ignored).
+  The form shows whether a Jira token / GROQ key is saved, allows replacement, and offers
+  a **clear** checkbox to remove a saved secret. The status line refreshes after saving.
 
 ### 2. Generate page
 - Free-text prompt, e.g. *"Fetch this Jira and create a test plan."*

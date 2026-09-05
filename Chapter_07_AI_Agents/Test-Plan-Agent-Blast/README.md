@@ -37,9 +37,11 @@ Then open the printed URL (default http://localhost:8501).
 
 ## Where credentials live
 
-- Secrets are stored in `.app_settings.json` (git-ignored) when you click **Save** in Settings.
-- `.env` is read as a fallback (see `.env.example`).
-- Never commit `.env` or `.app_settings.json`.
+- Credentials live in **`.env`** (git-ignored) — the single source of truth.
+- Click **Save** in Settings to write them there (or edit `.env` directly; see `.env.example`).
+- Settings shows whether a Jira token / GROQ key is currently saved, lets you replace it,
+  and has a **clear** checkbox to remove it.
+- Never commit `.env`.
 
 ## Configuration notes
 
@@ -57,7 +59,7 @@ Then open the printed URL (default http://localhost:8501).
 app.py                     # Streamlit UI (Settings + Generate + Demo)
 architecture/SOP-*.md      # Layer 1: technical SOPs
 tools/                     # Layer 3: deterministic modules
-  config_store.py          # settings persistence (.app_settings.json / .env)
+  config_store.py          # settings persistence (.env single store, legacy migration)
   jira_client.py           # fetch + normalize issue (ADF/wiki/plain), test connection
   groq_client.py           # GROQ chat (JSON mode) + test connection (list models)
   plan_engine.py           # deterministic skeleton + LLM merge + validate + markdown
