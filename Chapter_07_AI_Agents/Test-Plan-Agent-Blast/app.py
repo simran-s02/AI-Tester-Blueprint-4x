@@ -66,6 +66,37 @@ def _load_settings_cached():
     return load_settings()
 
 
+def _running_from_secrets() -> bool:
+    """True when the effective settings came from Streamlit secrets (deployed)."""
+    try:
+        import streamlit as st_mod
+
+        secrets = st_mod.secrets
+    except Exception:
+        return False
+    # NOTE: never test truthiness/len of st.secrets - with no secrets.toml that
+    # raises StreamlitSecretNotFoundError. Probe individual keys inside try/except.
+    found = False
+    for key in ("JIRA_API_TOKEN", "JIRA_BASE_URL", "GROQ_API_KEY", "GROQ_MODEL", "JIRA_EMAIL"):
+        try:
+            if secrets.get(key):
+                found = True
+                break
+        except Exception:
+            continue
+    if not found:
+        try:
+            jira_block = secrets.get("jira")
+            groq_block = secrets.get("groq")
+        except Exception:
+            jira_block = groq_block = None
+        if (isinstance(jira_block, dict) and jira_block.get("api_token")) or (
+            isinstance(groq_block, dict) and groq_block.get("api_key")
+        ):
+            found = True
+    return found
+
+
 def _save_settings_ui(values: dict) -> None:
     save_settings(values)
     _load_settings_cached.clear()
@@ -74,7 +105,14 @@ def _save_settings_ui(values: dict) -> None:
 # ---------------------------------------------------------------- pages
 def settings_page() -> None:
     st.header("⚙️ Settings")
-    st.caption("Configure Jira and Groq. Credentials are stored in the local `.env` file (git-ignored).")
+    if _running_from_secrets():
+        st.caption(
+            "Credentials are read from **Streamlit Secrets** (deployed). To change them, "
+            "edit them in the Streamlit dashboard under Settings → Secrets, or in a local "
+            "`.streamlit/secrets.toml`."
+        )
+    else:
+        st.caption("Credentials are read from the local `.env` file (git-ignored).")
 
     current = _load_settings_cached()
     jira = current.get("jira", {})
@@ -155,7 +193,14 @@ def settings_page() -> None:
         jira, groq = current.get("jira", {}), current.get("groq", {})
         has_jira_token = bool((jira.get("api_token") or "").strip())
         has_groq_key = bool((groq.get("api_key") or "").strip())
-        st.success("Settings saved to `.env`.")
+        if _running_from_secrets():
+            st.success(
+                "Saved locally. ⚠️ On a deployed app, also add these in the Streamlit "
+                "dashboard under **Settings → Secrets** (or a local `.streamlit/secrets.toml`) "
+                "so the deployed instance can read them."
+            )
+        else:
+            st.success("Settings saved to `.env`.")
 
     st.divider()
     st.subheader("Test connections")

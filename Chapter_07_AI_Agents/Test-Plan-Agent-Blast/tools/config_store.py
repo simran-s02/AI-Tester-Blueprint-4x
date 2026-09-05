@@ -22,6 +22,11 @@ try:
 except Exception:  # pragma: no cover - dotenv is a dependency, but keep import safe
     load_dotenv = None
 
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - streamlit is a dependency, but keep import safe
+    st = None
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 SETTINGS_PATH = BASE_DIR / ".app_settings.json"
 ENV_PATH = BASE_DIR / ".env"
@@ -161,11 +166,63 @@ def _write_env_values_flat(flat: dict[str, str]) -> None:
     ENV_PATH.write_text("\n".join(lines_out) + "\n", encoding="utf-8")
 
 
+def _load_streamlit_secrets() -> dict:
+    """Read credentials from Streamlit secrets (deployed apps / secrets.toml).
+
+    Streamlit exposes secrets via st.secrets. TOML keys may be flat
+    (JIRA_API_TOKEN = "...") or nested under [jira] / [groq]. We accept both:
+      - flat key JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN / GROQ_API_KEY / GROQ_MODEL
+      - sections [jira] base_url/email/api_token and [groq] api_key/model
+    """
+    if st is None:
+        return {}
+    try:
+        secrets = st.secrets
+    except Exception:
+        return {}
+    settings: dict = {}
+
+    # flat keys -> section mapping
+    flat_map = {
+        "JIRA_BASE_URL": ("jira", "base_url"),
+        "JIRA_EMAIL": ("jira", "email"),
+        "JIRA_API_TOKEN": ("jira", "api_token"),
+        "GROQ_API_KEY": ("groq", "api_key"),
+        "GROQ_MODEL": ("groq", "model"),
+    }
+    for env_key, (section, field) in flat_map.items():
+        try:
+            value = secrets.get(env_key)
+        except Exception:
+            value = None
+        if value not in (None, ""):
+            settings.setdefault(section, {})[field] = str(value).strip()
+
+    # nested [jira] / [groq] sections
+    for section in ("jira", "groq"):
+        try:
+            block = secrets.get(section)
+        except Exception:
+            block = None
+        if not isinstance(block, dict):
+            continue
+        for field in ("base_url", "email", "api_token", "api_key", "model", "issue_lookup_by"):
+            if block.get(field):
+                settings.setdefault(section, {})[field] = str(block[field]).strip()
+    return settings
+
+
 # ---------------------------------------------------------------- public API
 def load_settings() -> dict:
-    """Return effective settings. Order: defaults < .env (no JSON override)."""
+    """Return effective settings.
+
+    Precedence: defaults < .env file < Streamlit secrets. Streamlit secrets win
+    so a deployed app (which has no .env) picks up Settings -> Secrets values.
+    """
     _migrate_legacy_json()
-    return _deep_merge(DEFAULT_SETTINGS, _load_env_fallbacks())
+    settings = _deep_merge(DEFAULT_SETTINGS, _load_env_fallbacks())
+    settings = _deep_merge(settings, _load_streamlit_secrets())
+    return settings
 
 
 def save_settings(settings: dict) -> None:
