@@ -1,0 +1,5 @@
+# Test Plan Creator from a Jira ID — requirements
+# Python 3.10+
+streamlit>=1.36
+requests>=2.31
+python-dotenv>=1.0

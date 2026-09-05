@@ -1,0 +1,10 @@
+# Secrets
+.env
+.app_settings.json
+
+# Runtime artifacts
+.tmp/
+output/
+__pycache__/
+*.pyc
+.venv/

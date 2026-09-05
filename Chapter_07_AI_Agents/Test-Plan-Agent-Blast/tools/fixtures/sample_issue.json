@@ -1,0 +1,67 @@
+{
+  "id": "10001",
+  "key": "DEMO-101",
+  "fields": {
+    "summary": "As a user, I can reset my password using my registered email",
+    "description": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Users often forget their password. Add a " },
+            { "type": "text", "text": "self-service reset", "marks": [{ "type": "strong" }] },
+            { "type": "text", "text": " flow." }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": { "level": 2 },
+          "content": [{ "type": "text", "text": "Acceptance Criteria" }]
+        },
+        {
+          "type": "bulletList",
+          "content": [
+            {
+              "type": "listItem",
+              "content": [
+                { "type": "paragraph", "content": [{ "type": "text", "text": "User can request a reset link with a valid email" }] }
+              ]
+            },
+            {
+              "type": "listItem",
+              "content": [
+                { "type": "paragraph", "content": [{ "type": "text", "text": "Reset link expires after 30 minutes" }] }
+              ]
+            },
+            {
+              "type": "listItem",
+              "content": [
+                { "type": "paragraph", "content": [{ "type": "text", "text": "New password must be at least 8 characters" }] }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "issuetype": { "name": "Story" },
+    "status": { "name": "In Progress" },
+    "priority": { "name": "High" },
+    "labels": ["auth", "p1"],
+    "components": [{ "name": "Backend" }],
+    "issuelinks": [
+      {
+        "type": { "name": "Relates", "inward": "is related to", "outward": "relates to" },
+        "outwardIssue": {
+          "key": "DEMO-102",
+          "fields": {
+            "summary": "Send password reset email via transactional provider",
+            "issuetype": { "name": "Sub-task" },
+            "status": { "name": "To Do" }
+          }
+        }
+      }
+    ]
+  }
+}
