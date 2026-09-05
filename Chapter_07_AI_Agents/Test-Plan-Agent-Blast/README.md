@@ -1,5 +1,9 @@
 # 🧪 Test Plan Creator from a Jira ID
 
+🚀 **Live app:** [test-plan-creator-ai-agent.streamlit.app](https://test-plan-creator-ai-agent.streamlit.app)
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://test-plan-creator-ai-agent.streamlit.app)
+
 A simple UI that turns a prompt like *"Fetch this Jira and create a test plan"* into a
 complete, structured Test Plan. It fetches the Jira ticket automatically, builds a
 **deterministic plan skeleton** (scenarios, cases, requirement traceability), then uses
