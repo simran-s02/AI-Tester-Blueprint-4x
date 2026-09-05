@@ -39,6 +39,14 @@ streamlit run app.py
 
 Then open the printed URL (default http://localhost:8501).
 
+> **Port troubleshooting:** if the app does not come up on 8501 (some Windows
+> terminals/IDE runners interrupt the default port), run it on an explicit port
+> instead:
+> ```bash
+> streamlit run app.py --server.port 8502
+> ```
+> and open http://localhost:8502.
+
 ## Where credentials live
 
 - Credentials live in **`.env`** (git-ignored) — the single source of truth.
