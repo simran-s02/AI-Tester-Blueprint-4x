@@ -1,0 +1,227 @@
+{
+  "name": "02_CreateJIRATicket_AIAgent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Trigger",
+        "height": 400,
+        "width": 224
+      },
+      "id": "6d3b7816-a8e8-4e02-8bd0-9b7c6ef5ec8c",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "3f4703a9-4306-48f4-a450-32a0a49cdeea",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -64,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "id": "a0346289-b248-4f23-9bf1-07acbfbd3c99",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -64,
+        192
+      ],
+      "webhookId": "6036cdad-7bec-4aee-ad4d-499d21088fe3"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You create JIRA tickets in the QA_Testing project using the \"Create an issue in Jira Software\" tool. Read what the user wants and pass the correct numeric issue type ID: use 10012 for a Bug, 10008 for a Task, 10009 for a Story. If the user does not specify a type, default to Task (10008). Always provide a clear Summary."
+        }
+      },
+      "id": "c014292d-c0dd-4097-88da-f9073f2d8698",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "dfa8b081-2e00-4d94-81c5-7e459e86b17f",
+      "name": "Brain: Open Ai Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        416
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "36mEI0O583FwsX8Q",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "f9376c45-6f95-464b-b11a-6dc7c56a7f3a",
+      "name": "Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        304,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10001",
+          "mode": "list",
+          "cachedResultName": "QA_Testing"
+        },
+        "issueType": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $fromAI(\"Issue_Type_Id\", \"Numeric Jira issue type ID for the QA_Testing project. Choose based on the user request: 10012 = Bug, 10008 = Task, 10009 = Story. Default to 10008 (Task) if unclear.\", \"string\") }}",
+          "__regex": "^([0-9]{1,})"
+        },
+        "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}",
+        "additionalFields": {}
+      },
+      "id": "19d0f656-7b09-4128-bba9-ff735f39818f",
+      "name": "Create an issue in Jira Software",
+      "type": "n8n-nodes-base.jiraTool",
+      "typeVersion": 1,
+      "position": [
+        432,
+        416
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "h6KvEotGIZ2aW2Ix",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Action",
+        "height": 368,
+        "width": 384,
+        "color": 4
+      },
+      "id": "9fecbbee-bfe3-4a58-b3ed-5b4e5a9b2873",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Result",
+        "height": 240,
+        "width": 304,
+        "color": 6
+      },
+      "id": "8b114208-b25d-4c26-b7f0-84d81d1516e0",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        528,
+        -128
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brain: Open Ai Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an issue in Jira Software": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a6c02286-9d3c-40ba-ac10-cd6ce9cc8321",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5d31f9c7f6b5309bc8011e609587a7108459acd7b5241fa7b2d8e235347714e0"
+  },
+  "nodeGroups": [],
+  "id": "6u8NCSc30hRaNqqe",
+  "tags": []
+}
