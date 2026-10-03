@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screenshot to Bug Reporter</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #ffffff;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #4f46e5;
+      --accent-ink: #ffffff;
+      --ok: #047857;
+      --err: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 48px 16px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 620px;
+      background: var(--card);
+      border-radius: 14px;
+      padding: 28px 28px 24px;
+      box-shadow: 0 18px 50px rgba(2, 6, 23, 0.35);
+    }
+    h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: -0.01em; }
+    header p { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+    form { display: grid; gap: 16px; }
+    label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+    .opt, .req { font-weight: 500; font-size: 12px; color: var(--muted); }
+    .req { color: var(--accent); }
+    input[type="file"], input[type="text"], textarea, select {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+      background: #f8fafc;
+      color: inherit;
+    }
+    textarea { resize: vertical; }
+    input[type="file"] { background: #fff; padding: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+    button {
+      margin-top: 4px;
+      padding: 11px 16px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    #status {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+    }
+    #status.done { border-color: #a7f3d0; background: #ecfdf5; color: var(--ok); }
+    #status.error { border-color: #fecaca; background: #fef2f2; color: var(--err); }
+    #status a { color: inherit; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Screenshot to Bug Reporter</h1>
+      <p>Upload a screenshot. The AI drafts the bug, files it in Jira, and attaches the image.</p>
+    </header>
+
+    <form id="report-form">
+      <div>
+        <label for="screenshot">Screenshot <span class="req">required</span></label>
+        <input type="file" id="screenshot" name="screenshot" accept="image/*" required />
+      </div>
+
+      <div>
+        <label for="error_logs">Error logs <span class="opt">optional</span></label>
+        <textarea id="error_logs" name="error_logs" rows="4" placeholder="Paste the stack trace or console errors"></textarea>
+      </div>
+
+      <div>
+        <label for="steps_to_reproduce">Steps to reproduce <span class="opt">optional</span></label>
+        <textarea id="steps_to_reproduce" name="steps_to_reproduce" rows="4" placeholder="What did you do before the bug appeared?"></textarea>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="severity">Severity guess <span class="opt">optional</span></label>
+          <select id="severity" name="severity">
+            <option value="">Not sure</option>
+            <option value="S1">S1</option>
+            <option value="S2">S2</option>
+            <option value="S3">S3</option>
+            <option value="S4">S4</option>
+          </select>
+        </div>
+        <div>
+          <label for="environment">Environment <span class="opt">optional</span></label>
+          <input type="text" id="environment" name="environment" placeholder="Browser, OS, build" />
+        </div>
+      </div>
+
+      <button type="submit" id="submit">Draft and file bug</button>
+    </form>
+
+    <div id="status" role="status" aria-live="polite" hidden></div>
+  </main>
+
+  <script>
+    const form = document.getElementById('report-form');
+    const button = document.getElementById('submit');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(kind, nodes) {
+      statusEl.className = kind === 'error' ? 'error' : kind === 'done' ? 'done' : '';
+      statusEl.replaceChildren(...nodes);
+      statusEl.hidden = false;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const file = document.getElementById('screenshot').files[0];
+      if (!file) return;
+
+      const data = new FormData();
+      data.append('screenshot', file);
+      for (const name of ['error_logs', 'steps_to_reproduce', 'severity', 'environment']) {
+        data.append(name, document.getElementById(name).value.trim());
+      }
+
+      button.disabled = true;
+      setStatus('reading', [document.createTextNode('Analysing the screenshot and filing the bug. This can take a moment...')]);
+
+      try {
+        const response = await fetch('/api/report', { method: 'POST', body: data });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || 'Request failed (' + response.status + ')');
+        }
+        if (!payload.issue_key) {
+          throw new Error('The workflow replied without an issue key.');
+        }
+
+        const link = document.createElement('a');
+        link.textContent = payload.issue_key;
+        if (payload.issue_url) {
+          link.href = payload.issue_url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+        }
+        setStatus('done', [document.createTextNode('Filed '), link, document.createTextNode('.')]);
+        form.reset();
+      } catch (error) {
+        setStatus('error', [document.createTextNode(error.message)]);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

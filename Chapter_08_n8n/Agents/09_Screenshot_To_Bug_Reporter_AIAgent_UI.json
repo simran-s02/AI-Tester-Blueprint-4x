@@ -1,0 +1,339 @@
+{
+  "name": "09_Screenshot_To_Bug_Reporter_AIAgent_UI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "screenshot-bug-reporter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "606edf0a-f18a-4440-8252-0dbe7d0274ef",
+      "name": "On UI submission",
+      "webhookId": "be01caaa-4b45-4f94-91e5-96fa6947aad0"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const JIRA_BASE_URL = 'https://your-domain.atlassian.net';\n\nconst item = $input.first();\nconst json = item.json || {};\n\nconst pick = (...keys) => {\n  for (const key of keys) {\n    const value = json[key];\n    if (value !== undefined && value !== null && String(value).trim() !== '') {\n      return String(value);\n    }\n  }\n  return '';\n};\n\nconst logs = pick('Error logs', 'error_logs', 'errorLogs', 'logs');\nconst steps = pick('Steps to reproduce', 'steps_to_reproduce', 'stepsToReproduce', 'steps');\nconst severity = pick('Severity guess', 'severity_guess', 'severity');\nconst environment = pick('Environment', 'environment');\n\nconst binary = item.binary || {};\nconst binaryKey = Object.keys(binary)[0];\nif (!binaryKey) {\n  throw new Error('No uploaded file found on the webhook item. Send the screenshot as a multipart file field.');\n}\nconst screenshot = binary[binaryKey];\n\nconst systemPrompt = `You are a senior QA engineer triaging a screenshot.\n\nFIRST decide whether the screenshot actually shows a defect. Many screenshots show\na perfectly healthy screen. If this one does, say so: set confidence to \"low\" and\nwrite a summary stating that no defect is visible. Do not manufacture a defect to\nfill the schema. \"Nothing is wrong here\" is a correct and valuable answer.\n\nThe reporter severity guess below is only a guess. It is NOT evidence that a defect\nexists and must not steer what you claim to see. Neither is the fact that someone\nasked you for a report.\n\nOnly once you have decided a defect is visible, write it up.\n\nRules:\n- Describe only what is actually visible in the image. Never invent stack traces,\n  error codes, URLs, ids or user names that you cannot actually read.\n- If the reporter supplied error logs, use them. Do not fabricate extra log lines.\n- Quote on-screen text exactly as rendered. Never claim that text is truncated, cut\n  off or clipped unless you can name the exact character it stops at.\n- A screenshot being tall, wide or scaled is not a defect. Do not report cropping\n  that is an artifact of how the image was captured.\n- steps_to_reproduce must be concrete actions a second tester could follow. If you\n  are inferring them rather than reading them, keep them short and lower confidence.\n- visual_observations is where the screenshot detail belongs: layout breaks,\n  overlapping elements, error banners, empty states, truncated or misaligned text,\n  wrong colours, and the exact on-screen error strings you can read.\n- severity is one of S1, S2, S3, S4. S1 blocks release, S4 is cosmetic.\n- confidence is one of high, medium, low.\n\nReturn a single JSON object with exactly these keys:\nsummary, environment, steps_to_reproduce, expected_result, actual_result,\nvisual_observations, severity, suggested_component, confidence\n\nsummary is one line under 120 characters with no ticket prefix.\nsteps_to_reproduce and visual_observations are arrays of strings.\nEvery other value is a string.`;\n\nconst userPrompt = [\n  'Examine the attached screenshot. Decide first whether it shows a defect, then report what you find. If nothing is wrong with it, report that.',\n  '',\n  'Reporter severity guess: ' + (severity || 'not supplied'),\n  'Environment: ' + (environment || 'not supplied'),\n  '',\n  steps ? 'What the reporter did:\\n' + steps : 'What the reporter did: not supplied.',\n  '',\n  logs ? 'Error logs:\\n' + logs : 'Error logs: none supplied.'\n].join('\\n');\n\nreturn [{\n  json: {\n    jira_base_url: JIRA_BASE_URL,\n    logs,\n    steps,\n    severity,\n    environment,\n    system_prompt: systemPrompt,\n    user_prompt: userPrompt,\n    screenshot_mime: screenshot.mimeType || 'image/png',\n    screenshot_name: screenshot.fileName || 'screenshot.png'\n  },\n  binary: { screenshot }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "e6291d62-4df2-4de5-a63e-e4b8dfd92663",
+      "name": "Normalize Intake"
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "binaryPropertyName": "screenshot",
+        "destinationKey": "screenshot_b64"
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "be8f0d00-0cef-48d0-a677-74bbc4c95a6e",
+      "name": "Screenshot to Base64"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "HTTP-Referer",
+              "value": "https://github.com/AI-Tester-Blueprint"
+            },
+            {
+              "name": "X-Title",
+              "value": "Screenshot to Bug Reporter (UI)"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'minimax/minimax-m3:free', temperature: 0.1, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $('Normalize Intake').first().json.system_prompt }, { role: 'user', content: [ { type: 'text', text: $('Normalize Intake').first().json.user_prompt }, { type: 'image_url', image_url: { url: 'data:' + $('Normalize Intake').first().json.screenshot_mime + ';base64,' + $json.screenshot_b64 } } ] } ] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "cbd59707-0a85-4e86-9064-c8bcf361f522",
+      "name": "OpenRouter Vision - Draft Bug Report"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.first().json;\nconst choice = (response.choices && response.choices[0]) || {};\nconst message = choice.message || {};\nlet text = String(message.content || '').trim();\n\nconst fenced = text.match(/^```(?:json)?\\s*([\\s\\S]*?)\\s*```$/i);\nif (fenced) {\n  text = fenced[1].trim();\n}\n\nconst asArray = (value) => {\n  if (Array.isArray(value)) {\n    return value.map((v) => String(v)).filter((v) => v.trim() !== '');\n  }\n  if (value === undefined || value === null || String(value).trim() === '') {\n    return [];\n  }\n  return [String(value)];\n};\nconst asString = (value) => (value === undefined || value === null ? '' : String(value));\n\nlet report;\nlet processingError = '';\ntry {\n  report = JSON.parse(text);\n} catch (error) {\n  processingError = 'Model did not return valid JSON: ' + error.message;\n  report = {};\n}\n\nconst steps = asArray(report.steps_to_reproduce);\nconst visual = asArray(report.visual_observations);\nconst summary = asString(report.summary) || 'Screenshot bug report (summary unavailable)';\n\nconst description = [\n  'Summary: ' + summary,\n  '',\n  'Environment: ' + asString(report.environment),\n  'Severity (model): ' + asString(report.severity),\n  'Suggested component: ' + asString(report.suggested_component),\n  'Confidence: ' + asString(report.confidence),\n  '',\n  'Steps to reproduce:',\n  steps.length ? steps.map((s, i) => `${i + 1}. ${s}`).join('\\n') : '(not supplied)',\n  '',\n  'Expected result: ' + asString(report.expected_result),\n  'Actual result: ' + asString(report.actual_result),\n  '',\n  'Visual observations:',\n  visual.length ? visual.map((v) => '- ' + v).join('\\n') : '(not supplied)'\n].join('\\n');\n\nconst source = $('Normalize Intake').first();\nconst binary = source.binary || {};\n\nreturn [{\n  json: {\n    summary: summary.slice(0, 240),\n    environment: asString(report.environment),\n    severity: asString(report.severity),\n    suggested_component: asString(report.suggested_component),\n    confidence: asString(report.confidence),\n    steps_to_reproduce: steps,\n    visual_observations: visual,\n    jira_description: processingError\n      ? description + '\\n\\nProcessing error: ' + processingError\n      : description,\n    screenshot_mime: source.json.screenshot_mime || 'image/png',\n    processing_error: processingError\n  },\n  binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "id": "c25e1a0f-9978-4da3-83ac-6e5b9e319625",
+      "name": "Parse Bug Report"
+    },
+    {
+      "parameters": {
+        "resource": "issue",
+        "operation": "create",
+        "project": {
+          "__rl": true,
+          "mode": "list",
+          "value": "10033",
+          "cachedResultName": "VWO"
+        },
+        "issueType": {
+          "__rl": true,
+          "mode": "list",
+          "value": "10042",
+          "cachedResultName": "Bug"
+        },
+        "summary": "={{ $json.summary }}",
+        "additionalFields": {
+          "description": "={{ $json.jira_description }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "cdd92ba1-a669-4da3-bb1c-2da6b8995c4c",
+      "name": "Jira - Create Bug",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "h6KvEotGIZ2aW2Ix",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const created = $input.first().json;\nconst source = $('Normalize Intake').first();\nconst binary = source.binary || {};\n\nconst issueKey = created.key || created.id || '';\nconst base = String(source.json.jira_base_url || '').replace(/\\/+$/, '');\n\nreturn [{\n  json: {\n    issue_key: issueKey,\n    issue_id: created.id || '',\n    issue_url: base && issueKey ? base + '/browse/' + issueKey : '',\n    screenshot_mime: source.json.screenshot_mime || 'image/png'\n  },\n  binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "f681ff30-2a99-4b0d-b0e2-53143d134ed1",
+      "name": "Prepare Attachment"
+    },
+    {
+      "parameters": {
+        "resource": "issueAttachment",
+        "operation": "add",
+        "issueKey": "={{ $json.issue_key }}",
+        "binaryPropertyName": "screenshot",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "3f021383-5dfd-4e5a-b14d-b8b20147a075",
+      "name": "Jira - Attach Screenshot",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "h6KvEotGIZ2aW2Ix",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { issue_key: $('Prepare Attachment').first().json.issue_key, issue_url: $('Prepare Attachment').first().json.issue_url } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        0
+      ],
+      "id": "181b5de7-3ebc-4164-aca6-dee421db164e",
+      "name": "Respond to UI"
+    },
+    {
+      "parameters": {
+        "content": "**Input**\nUpload a screenshot of the bug, plus optional error logs, steps, severity guess and environment.",
+        "height": 176,
+        "width": 240,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -208
+      ],
+      "id": "e45eca59-efff-449d-9e37-304e53b8f447",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "**Action**\nWebhook intake (multipart upload) -> base64 -> one vision call (MiniMax M3 free, JSON mode) -> parse -> create the Jira bug -> attach the screenshot -> respond to the UI with the issue key.",
+        "height": 176,
+        "width": 1088,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        -208
+      ],
+      "id": "e9d698a9-01cd-40e9-8d25-5e33fc974977",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "**Result**\nA Jira bug with steps to reproduce, visual observations, and the screenshot attached.",
+        "height": 176,
+        "width": 240,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        -208
+      ],
+      "id": "b88ee02b-e895-4a52-b7fc-6c24f17dc391",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On UI submission": {
+      "main": [
+        [
+          {
+            "node": "Normalize Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Intake": {
+      "main": [
+        [
+          {
+            "node": "Screenshot to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screenshot to Base64": {
+      "main": [
+        [
+          {
+            "node": "OpenRouter Vision - Draft Bug Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Vision - Draft Bug Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Bug Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Bug Report": {
+      "main": [
+        [
+          {
+            "node": "Jira - Create Bug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira - Create Bug": {
+      "main": [
+        [
+          {
+            "node": "Prepare Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Attachment": {
+      "main": [
+        [
+          {
+            "node": "Jira - Attach Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira - Attach Screenshot": {
+      "main": [
+        [
+          {
+            "node": "Respond to UI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ac7ca483-eae8-466e-8750-6798c5287654",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5d31f9c7f6b5309bc8011e609587a7108459acd7b5241fa7b2d8e235347714e0"
+  },
+  "nodeGroups": [],
+  "id": "S9xBugRepUI27kQz1",
+  "tags": []
+}

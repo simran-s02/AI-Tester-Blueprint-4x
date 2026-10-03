@@ -183,3 +183,31 @@ Manual runs, in this order:
   resolves it dynamically rather than hardcoding.
 - **Text-heavy screenshots.** A dense screenshot costs the same as a sparse one but may
   exceed useful legibility. A downscale or crop step is a possible later addition.
+
+## 09 — the UI companion
+
+`09_Screenshot_To_Bug_Reporter_AIAgent_UI.json` is the same pipeline behind a **Webhook**
+instead of a form, so a custom front end can call it, plus a `Respond to Webhook` node that
+returns the new issue back to the page.
+
+| # | Node | Job |
+|---|---|---|
+| 1 | On UI submission | `webhook` 2, POST path `screenshot-bug-reporter`, `responseMode: responseNode` |
+| 2-8 | Normalize Intake … Jira: Attach | Same as 08. 09's Normalize Intake adds `const JIRA_BASE_URL` at the top; Prepare Attachment builds `issue_url` |
+| 9 | Respond to UI | `respondToWebhook` 1, returns `{ issue_key, issue_url }` |
+
+Model is the same free OpenRouter `minimax/minimax-m3:free`. The binary handling is
+identical to 08 (resolved by position, re-attached twice), so the Webhook form of the
+upload needs no special casing.
+
+The front end is in `Chapter_08_n8n/ui_screenshotbugAIAgent/`:
+
+```
+index.html        upload form -> POST multipart to /api/report
+api/report.js     Vercel function; streams the upload through to N8N_WEBHOOK_URL
+.env.example      N8N_WEBHOOK_URL
+```
+
+The browser never calls n8n directly, so the webhook URL stays server-side and there is no
+CORS to configure. The proxy sets `maxDuration: 60` because the synchronous vision + Jira
+chain can exceed Vercel's 10s default.

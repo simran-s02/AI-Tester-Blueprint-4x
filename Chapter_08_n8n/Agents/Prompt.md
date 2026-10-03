@@ -1,4 +1,4 @@
-/Users/promode/Documents/AITesterBlueprin4x/chapter_08_n8n/Agents
+Chapter_08_n8n/Agents
 
 Here is the problem statement which I want to build. I want you to build an n8n workflow that performs this: a screenshot-to-bug-reporter, where I will be uploading an image. What you will do is connect to a Git repo and create a bug report automatically in that project. 
 
@@ -34,7 +34,7 @@ ask me for the question that you want to me anwser,
 # How this was built
 
 Everything below documents the build of `08_…AIAgent.json` (n8n Form Trigger) and
-`09_…AIAgent_UI.json` (JSON API for the Vercel UI in `/ui_screenshotbugAIAgent`).
+`09_…AIAgent_UI.json` (Webhook API for the Vercel UI in `Chapter_08_n8n/ui_screenshotbugAIAgent/`).
 
 ## 1. Decisions taken against the brief
 
@@ -44,7 +44,7 @@ in the implementation guide. Those are different trackers, so it was resolved ex
 | Question | Chosen | Why |
 |---|---|---|
 | Tracker | **Jira only** | Matches the implementation guide and reuses the credential already in agents 01-05 |
-| Model | **Groq `qwen/qwen3.8-27b`** | Speed, and a Groq credential already existed. Not the cheapest, see section 3 |
+| Model | **OpenRouter `minimax/minimax-m3:free`** | Free and multimodal, and the same model the shipped 08 file uses. See section 3 |
 | Intake | **n8n Form Trigger** (08), **Webhook** (09) | 08 demos without any front end; 09 serves the custom UI |
 | Extras | **Attach the screenshot to the ticket** | Declined: dedup, approval gate, separate validation branch |
 | UI | **Vercel + serverless proxy** | The browser must not call n8n directly, see section 5 |
@@ -81,12 +81,13 @@ vision option, left the supported list. The only image-capable Groq models are
 
 | Provider | Model | $/M in | $/M out | Per report | Status |
 |---|---|---|---|---|---|
-| OpenRouter | `z-ai/glm-5.3-flash` | 0.075 | 0.25 | ~$0.0004 | Production |
-| OpenRouter | `minimax/minimax-m3:free` | 0 | 0 | $0 | Free, ~200/day |
-| **Groq (shipped)** | `qwen/qwen3.8-27b` | ~0.60 | ~3.00 | ~$0.0036 | Preview |
+| **OpenRouter (shipped)** | `minimax/minimax-m3:free` | 0 | 0 | $0 | Free, ~200/day |
+| OpenRouter | `z-ai/glm-5.3-flash` | 0.035 | 0.50 | ~$0.0004 | Production |
+| Groq | `qwen/qwen3.8-27b` | ~0.60 | ~3.00 | ~$0.0036 | Preview |
 
-Groq charges a flat **2048 tokens per image**. The 5x output-over-input multiplier is the
-highest on its price list, which is why the output schema is kept tight.
+Groq bills a flat **2048 tokens per image** and its output rate is about 5x its input rate,
+so the output schema is kept tight. On the free OpenRouter endpoint the cost pressure is
+gone, but a tight schema still helps the model stay inside `response_format`.
 
 Lesson: **check the provider's current model list before designing around a model.**
 The one you remember may not be served any more.
@@ -170,16 +171,17 @@ report what you find. If nothing is wrong with it, report that.
 }
 ```
 
-Enforced with Groq's `response_format: { "type": "json_object" }`, which works alongside
-images. That is why no separate schema-validation branch was needed. OpenRouter's GLM 5.3
-Flash accepts `response_format` but does **not** enforce a schema server-side, so swapping
-to it means adding an IF node after `Parse Bug Report`.
+The request sends `response_format: { "type": "json_object" }`, which works alongside
+images. OpenRouter does **not** validate a schema server-side, so `Parse Bug Report` keeps
+its tolerance: it strips one fenced block and, if the reply is not JSON at all, still files
+the ticket with a processing-error note rather than breaking the run. No separate
+schema-validation branch is needed.
 
 ## 5. Architecture
 
 ```
 08 (form):    Form Trigger ─┐
-                            ├─ Normalize Intake → Screenshot to Base64 → Groq Vision
+                            ├─ Normalize Intake → Screenshot to Base64 → OpenRouter Vision
 09 (API):     Webhook ──────┘                                                │
                                                                              ▼
               Respond to UI ← Jira: Attach ← Prepare Attachment ← Jira: Create ← Parse
@@ -189,8 +191,15 @@ The UI never talks to n8n directly:
 
 ```
 browser ──POST /api/report──▶ Vercel function ──▶ n8n webhook
-(same origin, no CORS)        (N8N_WEBHOOK_URL,    Groq → Jira → respond
+(same origin, no CORS)        (N8N_WEBHOOK_URL,    OpenRouter → Jira → respond
                                server-side only)
+```
+
+```
+ui_screenshotbugAIAgent/
+  index.html        upload form, posts multipart to /api/report
+  api/report.js     serverless proxy to the n8n webhook
+  .env.example      N8N_WEBHOOK_URL
 ```
 
 Three things that are easy to get wrong:
@@ -258,9 +267,13 @@ grep -nEi 'gsk_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_-]{30,}' 0[89]_Screenshot*.json
 
 Then, in order:
 
-1. Import, attach the Groq and Jira credentials, set `JIRA_BASE_URL` at the top of
-   `Normalize Intake`, and **Activate**. An inactive workflow returns 404.
+1. Import both workflows, attach the OpenRouter and Jira credentials, set `JIRA_BASE_URL`
+   at the top of the 09 `Normalize Intake`, and **Activate** 09. An inactive workflow
+   returns 404.
 2. **Negative case first.** Upload a healthy page. Expect low confidence and an honest
    "no defect visible" summary.
 3. Positive case. Upload a genuinely broken page. Expect real steps and real observations.
 4. Check the ticket: the screenshot should be attached and openable.
+5. UI: copy `ui_screenshotbugAIAgent/.env.example` to `.env`, set `N8N_WEBHOOK_URL` to the
+   production webhook, run `npx vercel dev`, and confirm the page returns the issue key as
+   a working link.
