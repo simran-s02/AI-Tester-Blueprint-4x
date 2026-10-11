@@ -24,32 +24,17 @@ function App() {
     setResult(null);
 
     try {
-      const screenshotBase64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
+      const formData = new FormData();
 
-        reader.onload = () => resolve(reader.result);
-
-        reader.onerror = () => {
-          reject(new Error('Failed to read the screenshot.'));
-        };
-
-        reader.readAsDataURL(screenshot);
-      });
+      formData.append('screenshot', screenshot);
+      formData.append('error_logs', logs);
+      formData.append('steps_to_reproduce', steps);
+      formData.append('severity', severity);
+      formData.append('environment', environment);
 
       const response = await fetch('/api/report', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          logs,
-          steps,
-          severity,
-          environment,
-          screenshotBase64,
-          screenshotName: screenshot.name,
-          screenshotType: screenshot.type || 'image/png',
-        }),
+        body: formData,
       });
 
       const data = await response.json();

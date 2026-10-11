@@ -22,9 +22,10 @@ browser --POST /api/report--> Vercel function --> n8n webhook (workflow 09)
 
 - The browser never talks to n8n directly. The webhook URL stays server-side in the
   `N8N_WEBHOOK_URL` environment variable, so it is not exposed and no CORS setup is needed.
-- The page reads the screenshot, converts it to base64, and posts it as JSON to `/api/report`.
-- The serverless function forwards that payload to the n8n webhook and returns
-  `{ issue_key, issue_url }` back to the page.
+- The page posts the form (screenshot plus the text fields) as a `multipart/form-data`
+  upload to `/api/report`.
+- The serverless function streams that upload through to the n8n webhook untouched, then
+  returns `{ issue_key, issue_url }` back to the page.
 
 ## Files
 
@@ -32,28 +33,28 @@ browser --POST /api/report--> Vercel function --> n8n webhook (workflow 09)
 |---|---|
 | `index.html` | Vite page shell (loads `src/main.jsx`). |
 | `src/main.jsx` | React entry point. |
-| `src/App.jsx` | The whole UI: form, file to base64, POST to `/api/report`, show the result. |
+| `src/App.jsx` | The whole UI: form, multipart POST to `/api/report`, show the result. |
 | `src/App.css`, `src/index.css` | Styles. |
-| `api/report.js` | Vercel function. Forwards the JSON payload to the n8n webhook. |
+| `api/report.js` | Vercel function. Streams the multipart upload through to the n8n webhook. |
 | `package.json` | Scripts and dependencies (React, Vite). |
 | `vite.config.js`, `eslint.config.js` | Vite and ESLint config. |
-| `.env` | Local and git-ignored. Holds `N8N_WEBHOOK_URL`. |
+| `.env`, `.env.example` | Local env (git-ignored) and its template. Holds `N8N_WEBHOOK_URL`. |
 
 ## Request and response
 
-The page sends this JSON to `/api/report`:
+The page sends the form to `/api/report` as `multipart/form-data`:
 
 | Field | Meaning |
 |---|---|
-| `screenshotBase64` | The screenshot as a base64 data URL (required). |
-| `screenshotName` | Uploaded file name. |
-| `screenshotType` | Uploaded file MIME type. |
-| `logs` | Error logs (optional). |
-| `steps` | Steps to reproduce (optional). |
+| `screenshot` | The uploaded image file (required). |
+| `error_logs` | Error logs (optional). |
+| `steps_to_reproduce` | Steps to reproduce (optional). |
 | `severity` | `S1`-`S4` (defaults to `S3`). |
 | `environment` | Browser / OS / build (optional). |
 
-Workflow 09 replies with `{ "issue_key": "...", "issue_url": "..." }`, which the page renders.
+The proxy forwards the same multipart body to the n8n webhook, so the screenshot arrives as
+a normal binary file. Workflow 09 replies with `{ "issue_key": "...", "issue_url": "..." }`,
+which the page renders.
 
 ## Setup
 
@@ -62,7 +63,7 @@ Workflow 09 replies with `{ "issue_key": "...", "issue_url": "..." }`, which the
    returns 404.
 2. In workflow 09, open the **Normalize Intake** node and set `JIRA_BASE_URL` to your Jira
    site (e.g. `https://your-domain.atlassian.net`). That is what the issue link is built from.
-3. Create a `.env` file with the **production** webhook URL (not the test one):
+3. Copy `.env.example` to `.env` and set the **production** webhook URL (not the test one):
 
    ```
    N8N_WEBHOOK_URL=https://your-n8n-host/webhook/screenshot-bug-reporter
@@ -96,8 +97,7 @@ Set `N8N_WEBHOOK_URL` in the Vercel project environment (Production and Preview)
 
 ## Notes
 
-- The n8n workflow is synchronous (one vision call plus two Jira hops). On the Vercel Hobby
-  plan the default limit is 10s; add `maxDuration` in `api/report.js` if you hit a timeout.
-- The proxy sends the screenshot as base64 JSON. If workflow 09 answers with
-  "Send the screenshot as a multipart file field", update its **Normalize Intake** node to
-  read `screenshotBase64` from the JSON body.
+- The n8n workflow is synchronous (one vision call plus two Jira hops). The proxy sets
+  `maxDuration: 60`; on the Vercel Hobby plan the default limit is 10s, so this avoids a timeout.
+- The proxy forwards the upload as `multipart/form-data`, so workflow 09's **Normalize
+  Intake** node reads the screenshot as a binary file - no base64 conversion is involved.
