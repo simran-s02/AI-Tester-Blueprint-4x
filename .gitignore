@@ -1,2 +1,5 @@
 # Command Code local tooling
 .commandcode/
+
+# Chapter 08 legacy UI backup (kept local)
+Chapter_08_n8n/ui_screenshotbugAIAgent_old/
